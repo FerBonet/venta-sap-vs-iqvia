@@ -200,6 +200,10 @@ tbody td:first-child{text-align:left}
 .obj-kpi .obar{margin-top:11px;height:7px;background:var(--bg2);border-radius:4px;overflow:hidden}
 .obj-kpi .obar i{display:block;height:100%;border-radius:4px;background:var(--sap)}
 .obj-tablewrap{border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.obj-chartbox{border:1px solid var(--line);border-radius:13px;padding:16px 18px 10px;margin-top:18px;background:linear-gradient(180deg,var(--panel),var(--panel2))}
+.obj-chart-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.obj-chart-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--ink)}
+.obj-chart-canvas{position:relative;height:300px}
 .obj-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .obj-table thead th{position:sticky;top:0;background:#0a1322;color:var(--ink3);text-align:right;padding:11px 12px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap}
 .obj-table thead th:first-child{text-align:left}
@@ -225,6 +229,7 @@ tbody td:first-child{text-align:left}
 .obj-table td.prevcol.dimcol{color:var(--ink3)}
 .obj-table th.prevcol:first-of-type,.obj-table td.prevcol:first-of-type{border-left:1px solid var(--line2)}
 .obj-table th.mgrp{text-align:center;border-left:1px solid var(--line2);color:var(--ink2);font-style:normal;background:#0c1526}
+.obj-table .blockend{border-right:2px solid var(--line2)}
 .obj-table tr.hsub th{top:34px;font-size:9px;padding:5px 8px}
 .obj-table tr.hgrp th{border-bottom:1px solid var(--line2)}
 .obj-bar{display:inline-block;width:54px;height:7px;background:var(--bg2);border-radius:4px;overflow:hidden;vertical-align:middle;margin-left:7px}
@@ -417,6 +422,17 @@ tbody td:first-child{text-align:left}
     <div class="obj-tablewrap">
       <table class="obj-table" id="objTable"><thead id="objThead"></thead><tbody id="objBody"></tbody></table>
     </div>
+    <div class="obj-chartbox">
+      <div class="obj-chart-head">
+        <span class="obj-chart-title" id="objChartTitle">Cumplimiento por agrupación</span>
+        <div class="seg alt" id="segObjChart">
+          <button data-c="cumpl" class="on">Cumplimiento</button>
+          <button data-c="gap">GAP unidades</button>
+          <button data-c="mes">Evolución mensual</button>
+        </div>
+      </div>
+      <div class="obj-chart-canvas"><canvas id="objChart"></canvas></div>
+    </div>
   </div>
 </div>
 
@@ -608,7 +624,7 @@ function selectFamByName(area,gf,fa){
 function combineMarkets(mols){
   const uniq=[...new Set(mols)].filter(m=>m&&A.mol[m]);
   if(uniq.length===0)return null;
-  if(uniq.length===1)return A.mol[uniq[0]];
+  if(uniq.length===1){const e=A.mol[uniq[0]];return {...e,_combined:uniq};}
   const N=A.meta.months.length; // 28
   const mkt=Array(N).fill(0), sg=Array(N).fill(0);
   const compMap={}, prodMap={};
@@ -665,8 +681,8 @@ function renderRight(){
   body.innerHTML=`
    <div class="insight-box">${ins}</div>
    <div class="rband">
-     <h3>Indicadores <span class="pill-tab">${x.isGF?'Gran familia · '+e._combined.length+' moléculas':'Molécula'}</span></h3>
-     <div class="sub">${x.isGF?`Mercado combinado de: <b>${e._combined.join(' + ')}</b>`:`${x.molsap||key} → mercado IQVIA «${key}»`} · ${perlbl} · IQVIA llega a abril</div>
+     <h3>Indicadores <span class="pill-tab">${x.isGF?'Gran familia · '+((e._combined&&e._combined.length)||1)+' moléculas':'Molécula'}</span></h3>
+     <div class="sub">${x.isGF?`Mercado combinado de: <b>${(e._combined||[key]).join(' + ')}</b>`:`${x.molsap||key} → mercado IQVIA «${key}»`} · ${perlbl} · IQVIA llega a abril</div>
      <div class="mkpis">
        <div class="mkpi s"><div class="l">Growth Siegfried</div><div class="v ${gSg>=0?'pos':'neg'}">${pct(gSg)}</div><div class="d dim">${signU(sgv.a-sgv.p)} u</div></div>
        <div class="mkpi"><div class="l">Growth mercado</div><div class="v ${gMkt>=0?'pos':'neg'}">${pct(gMkt)}</div><div class="d dim">${signU(mktv.a-mktv.p)} u</div></div>
@@ -884,7 +900,7 @@ document.getElementById('btnExpand').onclick=()=>{
 document.getElementById('btnCollapse').onclick=()=>{S.open.clear();buildTree();};
 
 // ============ VISTA OBJETIVO 24M ============
-let OV={mode:'ytd',sort:{k:'gap',dir:'asc'},open:new Set(),scope:'all'};
+let OV={mode:'ytd',sort:{k:'gap',dir:'asc'},open:new Set(),scope:'all',chartType:'cumpl'};
 const OBJ_HIDE_AREAS=['Vendidos/Discontinuados','(sin clasificar)']; // no se muestran en Objetivo 24M
 function getO(){return A.obj[OV.scope];} // all | grilla | nogrilla
 const LASTM=SM; // mes de cierre (1..12), mayo=5
@@ -940,6 +956,66 @@ function renderObj(){
       <div class="od">a ritmo actual · ${proj>=annual?'supera':'no alcanza'} los ${(annual/1e6).toFixed(1)}M</div></div>`;
   // tabla por agrupación -> gran familia
   buildObjTable();
+  renderObjChart();
+}
+// ---- gráfico de barras de la vista objetivo (3 tipos) ----
+function renderObjChart(){
+  const O=getO();
+  const grid='rgba(255,255,255,.06)';
+  const tickC='#8a93a6';
+  const scopeLbl=OV.scope==='all'?'total':OV.scope==='grilla'?'grilla':'no grilla';
+  // áreas visibles (mismas que la tabla)
+  const areas=Object.keys(O.area).filter(a=>!OBJ_HIDE_AREAS.includes(a));
+  const titleEl=document.getElementById('objChartTitle');
+
+  if(OV.chartType==='mes'){
+    // evolución mensual: real por mes (barras) + objetivo (línea), del período en curso
+    let mIdx, lblTxt;
+    if(OV.mode==='trim'){const q=Math.floor((LASTM-1)/3);mIdx=[q*3,q*3+1,q*3+2];lblTxt='Trimestre en curso';}
+    else if(OV.mode==='mes'){mIdx=[LASTM-1];lblTxt='Mes';}
+    else {mIdx=Array.from({length:LASTM},(_,i)=>i);lblTxt='Año hasta cierre';}
+    const labels=mIdx.map(i=>MES[i]+'-'+cYY);
+    const objD=mIdx.map(i=>O.tot.obj[i]||0);
+    const reD=mIdx.map(i=>(i<=LASTM-1)?(O.tot.re[i]||0):null);
+    titleEl.textContent=`Evolución mensual · ${lblTxt} · ${scopeLbl}`;
+    mk('objChart',{type:'bar',data:{labels,datasets:[
+      {label:'Real',data:reD,backgroundColor:'#4fd1c5',borderRadius:5,order:2},
+      {type:'line',label:'Objetivo',data:objD,borderColor:'#f6c177',backgroundColor:'#f6c177',borderWidth:2,pointRadius:4,tension:.2,order:1}
+    ]},options:chartOpts(grid,tickC,true)});
+    return;
+  }
+
+  // cumpl y gap: una barra por agrupación
+  const rows=areas.map(a=>{const r=objRow(O.area[a]);return {a,obj:r.obj,re:r.re,gap:r.gap,cumpl:r.cumpl};})
+    .filter(r=>r.obj>0||r.re>0);
+
+  if(OV.chartType==='gap'){
+    rows.sort((x,y)=>x.gap-y.gap); // más faltante primero
+    const labels=rows.map(r=>r.a.replace(/^\s*\d+\s*-\s*/,''));
+    const data=rows.map(r=>r.gap);
+    const colors=rows.map(r=>r.gap>=0?'#4fd1c5':'#e06c75');
+    titleEl.textContent=`GAP en unidades por agrupación · ${scopeLbl}`;
+    mk('objChart',{type:'bar',data:{labels,datasets:[{label:'GAP (real − objetivo)',data,backgroundColor:colors,borderRadius:5}]},
+      options:chartOpts(grid,tickC,false,true)});
+    return;
+  }
+
+  // cumplimiento: real vs objetivo por agrupación + referencia 100% (vía línea de objetivo)
+  rows.sort((x,y)=>(x.cumpl??-1)-(y.cumpl??-1));
+  const labels=rows.map(r=>r.a.replace(/^\s*\d+\s*-\s*/,''));
+  titleEl.textContent=`Cumplimiento por agrupación · real vs objetivo · ${scopeLbl}`;
+  mk('objChart',{type:'bar',data:{labels,datasets:[
+    {label:'Objetivo',data:rows.map(r=>r.obj),backgroundColor:'rgba(246,193,119,.35)',borderColor:'#f6c177',borderWidth:1,borderRadius:4},
+    {label:'Real',data:rows.map(r=>r.re),backgroundColor:'#4fd1c5',borderRadius:4}
+  ]},options:chartOpts(grid,tickC,false)});
+}
+function chartOpts(grid,tickC,isMonth,divergent){
+  return {responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:tickC,font:{size:11},usePointStyle:true,pointStyleWidth:10}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y!=null?Math.round(c.parsed.y).toLocaleString('es-AR'):'—'} u`}}},
+    scales:{x:{ticks:{color:tickC,font:{size:10},maxRotation:35,minRotation:0},grid:{display:false}},
+      y:{ticks:{color:tickC,font:{size:10},callback:v=>Math.abs(v)>=1e6?(v/1e6).toFixed(1)+'M':Math.abs(v)>=1e3?(v/1e3).toFixed(0)+'k':v},
+        grid:{color:grid},beginAtZero:true}}};
 }
 function buildObjTable(){
   const O=getO();
@@ -990,23 +1066,23 @@ function buildObjTableTrim(O){
     const obj=o.obj[mi]||0, hasRe=(mi<=LASTM-1), re=hasRe?(o.re[mi]||0):null;
     const cu=(obj>0&&re!=null)?re/obj*100:null;
     return `<td>${fmtU(obj)}</td><td>${re==null?'<span class="dimcol">—</span>':fmtU(re)}</td>`+
-           `<td class="cumpl ${cu==null?'':cu>=100?'gap-pos':'gap-neg'}">${cu==null?'·':fmtPct1(cu)}</td>`;
+           `<td class="cumpl blockend ${cu==null?'':cu>=100?'gap-pos':'gap-neg'}">${cu==null?'·':fmtPct1(cu)}</td>`;
   }
   // Q1 cerrado (obj base/real/%)
   function prevCells(o){if(pq<0)return '';const a=pq*3;
     const obj=sumR(o.objb,a,a+2),re=sumR(o.re,a,a+2),cu=obj>0?re/obj*100:null;
-    return `<td class="prevcol dimcol">${fmtU(obj)}</td><td class="prevcol dimcol">${fmtU(re)}</td><td class="prevcol cumpl ${cu>=100?'gap-pos':'gap-neg'}">${fmtPct1(cu)}</td>`;}
+    return `<td class="prevcol dimcol">${fmtU(obj)}</td><td class="prevcol dimcol">${fmtU(re)}</td><td class="prevcol cumpl blockend ${cu>=100?'gap-pos':'gap-neg'}">${fmtPct1(cu)}</td>`;}
   // cumplimiento Q en curso provisorio: real acumulado (meses con dato) / objetivo Q completo
   function qCumpl(o){const objQ=sumR(o.obj,qcur*3,qcur*3+2);
     let reAcc=0;qMonths.forEach(mi=>{if(mi<=LASTM-1)reAcc+=o.re[mi]||0;});
     return objQ>0?reAcc/objQ*100:null;}
   // encabezado con grupos
-  const prevH=pq>=0?`<th class="prevcol" colspan="3">Q${pq+1} (cerrado)</th>`:'';
-  const monthH=qMonths.map(mi=>`<th colspan="3" class="mgrp">${MES[mi]}-${cYY}</th>`).join('');
+  const prevH=pq>=0?`<th class="prevcol blockend" colspan="3">Q${pq+1} (cerrado)</th>`:'';
+  const monthH=qMonths.map(mi=>`<th colspan="3" class="mgrp blockend">${MES[mi]}-${cYY}</th>`).join('');
   document.getElementById('objThead').innerHTML=`
     <tr class="hgrp"><th data-k="name" rowspan="2">Agrupación / Gran Familia</th>${prevH}${monthH}<th rowspan="2" data-k="qcumpl">Cumpl. Q${qcur+1}<br><span class="dimcol" style="font-weight:400">provisorio</span></th></tr>
-    <tr class="hsub">${pq>=0?'<th class="prevcol">Obj</th><th class="prevcol">Real</th><th class="prevcol">%</th>':''}
-      ${qMonths.map(()=>'<th>Obj</th><th>Real</th><th>%</th>').join('')}</tr>`;
+    <tr class="hsub">${pq>=0?'<th class="prevcol">Obj</th><th class="prevcol">Real</th><th class="prevcol blockend">%</th>':''}
+      ${qMonths.map(()=>'<th>Obj</th><th>Real</th><th class="blockend">%</th>').join('')}</tr>`;
   function rowFor(o,nameCell,cls,dataAttr){
     const qc=qCumpl(o);
     return `<tr class="${cls}"${dataAttr||''}>${nameCell}${prevCells(o)}${qMonths.map(mi=>monthCells(o,mi)).join('')}
@@ -1046,7 +1122,19 @@ document.querySelectorAll('#segObjView button').forEach(b=>{b.onclick=()=>{
   OV.mode=b.dataset.o;document.querySelectorAll('#segObjView button').forEach(x=>x.classList.toggle('on',x===b));renderObj();};});
 document.querySelectorAll('#segObjScope button').forEach(b=>{b.onclick=()=>{
   OV.scope=b.dataset.s;document.querySelectorAll('#segObjScope button').forEach(x=>x.classList.toggle('on',x===b));renderObj();};});
+document.querySelectorAll('#segObjChart button').forEach(b=>{b.onclick=()=>{
+  OV.chartType=b.dataset.c;document.querySelectorAll('#segObjChart button').forEach(x=>x.classList.toggle('on',x===b));renderObjChart();};});
 
+document.getElementById('objBody').addEventListener('click',e=>{
+  const grow=e.target.closest('tr.lvl-gf');
+  if(grow){ // sombrear fila de gran familia (toggle)
+    const wasSel=grow.classList.contains('rowsel');
+    document.querySelectorAll('#objBody tr.rowsel').forEach(r=>r.classList.remove('rowsel'));
+    if(!wasSel)grow.classList.add('rowsel');
+    return;
+  }
+  const tr=e.target.closest('tr.lvl-area');if(!tr)return;
+  const ar=tr.getAttribute('data-area');if(OV.open.has(ar))OV.open.delete(ar);else OV.open.add(ar);buildObjTable();});
 document.getElementById('objThead').addEventListener('click',e=>{const th=e.target.closest('th');if(!th)return;
   const k=th.dataset.k;if(OV.sort.k===k)OV.sort.dir=OV.sort.dir==='asc'?'desc':'asc';
   else{OV.sort.k=k;OV.sort.dir=(k==='name')?'asc':'desc';}buildObjTable();});
