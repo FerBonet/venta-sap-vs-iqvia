@@ -153,7 +153,7 @@ tbody td:first-child{text-align:left}
 .fclear{background:none;border:1px solid var(--line2);color:var(--ink3);border-radius:8px;padding:7px 11px;cursor:pointer;font-family:'Archivo';font-size:11.5px;font-weight:600}
 .fclear:hover{border-color:var(--neg);color:var(--neg)}
 /* sección contribución */
-.contrib-sec{padding:26px;border-top:1px solid var(--line);max-width:1640px;margin:0 auto;width:100%}
+.contrib-sec{padding:26px;border-bottom:1px solid var(--line);max-width:1640px;margin:0 auto;width:100%}
 .contrib-sec h2{font-family:'Fraunces',serif;font-size:19px;font-weight:600;margin-bottom:3px}
 .contrib-sec .sub{font-size:11.5px;color:var(--ink3);margin-bottom:18px}
 .contrib-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
@@ -322,6 +322,25 @@ tbody td:first-child{text-align:left}
     <button data-m="contrib">Crecimiento</button>
   </div>
 
+  <!-- CONTRIBUCIÓN AL CRECIMIENTO -->
+  <div class="contrib-sec">
+    <h2>Contribución al crecimiento <em style="font-style:italic;color:var(--ink2);font-weight:400">· familias en unidades absolutas</em></h2>
+    <div class="sub" id="contribSub">Qué familias sumaron y cuáles restaron al total Siegfried · YTD ene–may vs. año anterior</div>
+    <div class="chip-row" id="contribKpis"></div>
+    <div class="contrib-grid">
+      <div class="cbox">
+        <h3>⚠ Las que más nos hicieron perder</h3>
+        <div class="d">Familias con mayor caída en unidades — foco principal</div>
+        <div id="contribNeg"></div>
+      </div>
+      <div class="cbox">
+        <h3>Las que más aportaron</h3>
+        <div class="d">Familias que más sumaron en unidades</div>
+        <div id="contribPos"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="split">
     <!-- IZQUIERDA: venta SAP -->
     <div class="pane left">
@@ -377,25 +396,6 @@ tbody td:first-child{text-align:left}
           <h3>Seleccioná una familia</h3>
           <p>Elegí una familia en el panel de la izquierda —idealmente una con caída marcada— para ver cómo le va a su mercado por molécula o clase terapéutica.</p>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CONTRIBUCIÓN AL CRECIMIENTO -->
-  <div class="contrib-sec">
-    <h2>Contribución al crecimiento <em style="font-style:italic;color:var(--ink2);font-weight:400">· familias en unidades absolutas</em></h2>
-    <div class="sub" id="contribSub">Qué familias sumaron y cuáles restaron al total Siegfried · YTD ene–may vs. año anterior</div>
-    <div class="chip-row" id="contribKpis"></div>
-    <div class="contrib-grid">
-      <div class="cbox">
-        <h3>⚠ Las que más nos hicieron perder</h3>
-        <div class="d">Familias con mayor caída en unidades — foco principal</div>
-        <div id="contribNeg"></div>
-      </div>
-      <div class="cbox">
-        <h3>Las que más aportaron</h3>
-        <div class="d">Familias que más sumaron en unidades</div>
-        <div id="contribPos"></div>
       </div>
     </div>
   </div>
