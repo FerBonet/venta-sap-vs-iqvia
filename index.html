@@ -172,7 +172,59 @@ tbody td:first-child{text-align:left}
 .kcard .kv{font-family:'Space Mono',monospace;font-size:21px;font-weight:700}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px}::-webkit-scrollbar-thumb:hover{background:var(--ink3)}
+/* barra de pestañas: solo móvil */
+.mtabs{display:none}
 @media(max-width:1100px){.split{grid-template-columns:1fr}.pane.left{border-right:none;border-bottom:1px solid var(--line)}.mkpis{grid-template-columns:repeat(2,1fr)}.contrib-grid{grid-template-columns:1fr}}
+@media(max-width:760px){
+  .app{height:auto;min-height:100vh}
+  .topbar{padding:13px 16px 11px;flex-direction:column;align-items:stretch;gap:11px}
+  h1{font-size:19px}
+  .controls{gap:8px;justify-content:space-between}
+  .closing-note{font-size:10px}
+  /* pestañas visibles y fijas arriba */
+  .mtabs{display:flex;position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--line);padding:0 8px}
+  .mtabs button{flex:1;background:none;border:none;border-bottom:2px solid transparent;color:var(--ink3);font-family:'Archivo';font-size:13px;font-weight:600;padding:12px 6px;cursor:pointer;transition:.15s}
+  .mtabs button.on{color:var(--sap);border-bottom-color:var(--sap)}
+  /* el split deja de ser grid; cada panel ocupa todo el ancho y se muestra/oculta por JS */
+  .split{display:block;height:auto}
+  .pane{height:auto;overflow:visible;border:none!important}
+  .pane-body{overflow:visible;padding:12px 12px 30px}
+  .pane.left,.pane.right{display:none}
+  .contrib-sec{display:none;border-top:none;padding:14px 12px 40px}
+  /* el contenedor app marca cuál se ve */
+  .app.m-left .pane.left{display:flex}
+  .app.m-right .pane.right{display:flex}
+  .app.m-contrib .contrib-sec{display:block}
+  /* filtros apilados */
+  .filters{gap:7px}
+  .filters input{min-width:100%;order:-1}
+  .filters select{max-width:48%;flex:1}
+  /* tabla compacta */
+  thead th{font-size:8.5px;padding:7px 5px}
+  tbody td{padding:7px 5px;font-size:11px}
+  .lvl1 .tw{padding-left:13px}.lvl2 .tw{padding-left:26px}
+  .pane-head{padding:11px 14px 9px}
+  .pane-head h2{font-size:14px}
+  /* mercado: kpis y barras */
+  .mkpis{grid-template-columns:repeat(2,1fr);gap:8px}
+  .mkpi .v{font-size:16px}
+  .rband{padding:13px 13px}
+  .chartbox{height:200px}
+  .chartbox.tall{height:230px}
+  /* laboratorios: ocultar columnas menos críticas en pantallas muy chicas */
+  .compbar .cp,.comphead .cp-h{display:none}
+  .compbar .cn{width:96px}.comphead .cn-h{width:96px}
+  .compbar .cms,.comphead .cms-h{width:42px}
+  .compbar .cei,.comphead .cei-h{width:36px}
+  .compbar .cg,.comphead .cg-h{width:48px}
+  .compbar .cu,.comphead .cu-h{width:50px}
+  /* tabla productos: scroll horizontal si no entra */
+  .rband .ptable{display:block;overflow-x:auto;white-space:nowrap}
+  /* contribución: barras a ancho completo */
+  .cbar .cnm{width:130px}
+  .contrib-sec h2{font-size:16px}
+  .chip-row{gap:7px}.kcard{min-width:46%;padding:10px 12px}.kcard .kv{font-size:17px}
+}
 </style>
 </head>
 <body>
@@ -196,6 +248,12 @@ tbody td:first-child{text-align:left}
         <button data-r="mom">vs. mes ant.</button>
       </div>
     </div>
+  </div>
+
+  <div class="mtabs" id="mtabs">
+    <button data-m="left" class="on">Ventas</button>
+    <button data-m="right">Mercado</button>
+    <button data-m="contrib">Crecimiento</button>
   </div>
 
   <div class="split">
@@ -286,6 +344,14 @@ const gridc='#1d2940';Chart.defaults.font.family="'Archivo'";Chart.defaults.colo
 let charts={};function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
 
 let S={per:'ytd',mesRef:'yoy',mktLevel:'mol',sel:null,open:new Set(),sort:{k:'d',dir:'asc'}};
+// ---- navegación móvil ----
+const app=document.querySelector('.app');
+function isMobile(){return window.matchMedia('(max-width:760px)').matches;}
+function mShow(which){
+  app.classList.remove('m-left','m-right','m-contrib');app.classList.add('m-'+which);
+  document.querySelectorAll('#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.m===which));
+  if(which==='right')Object.values(charts).forEach(c=>c.resize&&c.resize());
+  window.scrollTo({top:0,behavior:'smooth'});}
 const A=ANALYSIS;const MO=A.meta.months; // 28 etiquetas YYYY-MM ene24..abr26
 // ---- fechas dinámicas según el cierre del archivo SAP ----
 const SAP=A.meta.sap_last.split('-'),SY=+SAP[0],SM=+SAP[1];        // año/mes de cierre SAP
@@ -624,9 +690,16 @@ function updatePerTags(){const t={ytd:'YTD '+YTDLBL+' · unidades',mat:'MAT 12m 
   document.getElementById('segMesRef').style.opacity=S.per==='mes'?'1':'.4';}
 seg('segPer','p',v=>{S.per=v;updatePerTags();buildTree();renderRight();renderContrib();});
 seg('segMesRef','r',v=>{S.mesRef=v;updatePerTags();buildTree();renderRight();renderContrib();});
+document.querySelectorAll('#mtabs button').forEach(b=>{b.onclick=()=>mShow(b.dataset.m);});
+if(isMobile())app.classList.add('m-left');
+window.addEventListener('resize',()=>{
+  if(!isMobile())app.classList.remove('m-left','m-right','m-contrib');
+  else if(!/m-(left|right|contrib)/.test(app.className))app.classList.add('m-left');});
+
 document.getElementById('treeBody').onclick=e=>{const tr=e.target.closest('.trow');if(!tr)return;
   const id=tr.getAttribute('data-id'),lvl=tr.getAttribute('data-level');
-  if(lvl==='2'){S.sel=id;document.querySelectorAll('#treeBody tr').forEach(r=>r.classList.remove('sel'));tr.classList.add('sel');renderRight();return;}
+  if(lvl==='2'){S.sel=id;document.querySelectorAll('#treeBody tr').forEach(r=>r.classList.remove('sel'));tr.classList.add('sel');renderRight();
+    if(isMobile())mShow('right');return;}
   if(S.open.has(id))S.open.delete(id);else S.open.add(id);tr.classList.toggle('open');applyVis();};
 
 // ordenamiento por columna
@@ -659,7 +732,8 @@ document.querySelector('.contrib-sec').addEventListener('click',e=>{const b=e.ta
     FL={text:'',area:'',gf:'',mol:'',estado:'all'};document.getElementById('fText').value='';
     ['fArea','fGF','fMol'].forEach(i=>document.getElementById(i).value='');buildTree();}
   selectFamByName(null,gf,fa);
-  document.querySelector('.split').scrollIntoView({behavior:'smooth',block:'start'});});
+  if(isMobile())mShow('right');
+  else document.querySelector('.split').scrollIntoView({behavior:'smooth',block:'start'});});
 
 // expandir / colapsar todo
 document.getElementById('btnExpand').onclick=()=>{
