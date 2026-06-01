@@ -210,6 +210,11 @@ tbody td:first-child{text-align:left}
 .obj-table tbody tr.lvl-area{background:rgba(122,162,247,.06)}
 .obj-table tbody tr.lvl-area td:first-child{font-family:'Fraunces',serif}
 .obj-table tbody tr.lvl-gf td:first-child{padding-left:26px;font-weight:400;color:var(--ink2)}
+.obj-table tbody tr.lvl-gf{cursor:pointer;transition:background .1s}
+.obj-table tbody tr.lvl-gf:hover td{background:rgba(255,255,255,.03)}
+.obj-table tbody tr.rowsel td{background:rgba(79,209,197,.16)!important}
+.obj-table tbody tr.rowsel td:first-child{color:var(--sap);font-weight:700;box-shadow:inset 3px 0 0 var(--sap)}
+.obj-table tbody tr.lvl-area{cursor:pointer}
 .obj-table tbody tr.lvl-tot{background:rgba(79,209,197,.1);border-top:2px solid var(--line2)}
 .obj-table tbody tr.lvl-tot td{font-weight:700}
 .obj-table tbody tr.lvl-tot td:first-child{font-family:'Fraunces',serif;font-size:13.5px}
@@ -880,6 +885,7 @@ document.getElementById('btnCollapse').onclick=()=>{S.open.clear();buildTree();}
 
 // ============ VISTA OBJETIVO 24M ============
 let OV={mode:'ytd',sort:{k:'gap',dir:'asc'},open:new Set(),scope:'all'};
+const OBJ_HIDE_AREAS=['Vendidos/Discontinuados','(sin clasificar)']; // no se muestran en Objetivo 24M
 function getO(){return A.obj[OV.scope];} // all | grilla | nogrilla
 const LASTM=SM; // mes de cierre (1..12), mayo=5
 
@@ -942,7 +948,7 @@ function buildObjTable(){
   const pq=prevClosedQ();
   const showPrev=(pq>=0);
   const areas={};
-  Object.keys(O.gf).forEach(k=>{const[area,gf]=k.split('||');(areas[area]=areas[area]||[]).push({gf,k});});
+  Object.keys(O.gf).forEach(k=>{const[area,gf]=k.split('||');if(OBJ_HIDE_AREAS.includes(area))return;(areas[area]=areas[area]||[]).push({gf,k});});
   const prevH=showPrev?`<th class="prevcol" data-k="pobj">Obj. Q${pq+1}</th><th class="prevcol" data-k="pre">Real Q${pq+1}</th><th class="prevcol" data-k="pcumpl">Cumpl. Q${pq+1}</th>`:'';
   document.getElementById('objThead').innerHTML=`<tr>
     <th data-k="name">Agrupación / Gran Familia</th>
@@ -1007,7 +1013,7 @@ function buildObjTableTrim(O){
       <td class="cumpl ${qc==null?'':qc>=100?'gap-pos':'gap-neg'}">${qc==null?'·':fmtPct1(qc)}${objBar(qc)}</td></tr>`;
   }
   let html=rowFor(O.tot,'<td>Total compañía</td>','lvl-tot');
-  const areas={};Object.keys(O.gf).forEach(k=>{const[area,gf]=k.split('||');(areas[area]=areas[area]||[]).push({gf,k});});
+  const areas={};Object.keys(O.gf).forEach(k=>{const[area,gf]=k.split('||');if(OBJ_HIDE_AREAS.includes(area))return;(areas[area]=areas[area]||[]).push({gf,k});});
   let arr=Object.entries(areas).map(([area,gfs])=>({area,gfs,o:O.area[area],qc:qCumpl(O.area[area])}));
   arr.sort((x,y)=>{const r=(x.qc??-1)-(y.qc??-1);return OV.sort.dir==='asc'?r:-r;});
   arr.forEach(({area,gfs,o})=>{
@@ -1022,7 +1028,11 @@ function buildObjTableTrim(O){
 }
 function objBar(c){if(c==null)return '';const w=Math.min(100,c);const col=c>=100?'var(--pos)':c>=90?'var(--sap)':'var(--neg)';
   return `<span class="obj-bar"><i style="width:${w}%;background:${col}"></i></span>`;}
-function objCmp(rx,nx,ry,ny){let r;
+function objCmp(rx,nx,ry,ny){
+  // filas sin actividad (obj 0 y real 0) siempre al fondo, sin importar dirección
+  const ex=( (rx.obj||0)===0 && (rx.re||0)===0 ), ey=( (ry.obj||0)===0 && (ry.re||0)===0 );
+  if(ex&&!ey)return 1; if(ey&&!ex)return -1; if(ex&&ey)return String(nx).localeCompare(String(ny));
+  let r;
   const k=OV.sort.k;
   if(k==='name')r=String(nx).localeCompare(String(ny));
   else if(k==='cumpl'||k==='pcumpl')r=(rx.cumpl??-1)-(ry.cumpl??-1);
@@ -1036,8 +1046,7 @@ document.querySelectorAll('#segObjView button').forEach(b=>{b.onclick=()=>{
   OV.mode=b.dataset.o;document.querySelectorAll('#segObjView button').forEach(x=>x.classList.toggle('on',x===b));renderObj();};});
 document.querySelectorAll('#segObjScope button').forEach(b=>{b.onclick=()=>{
   OV.scope=b.dataset.s;document.querySelectorAll('#segObjScope button').forEach(x=>x.classList.toggle('on',x===b));renderObj();};});
-document.getElementById('objBody').addEventListener('click',e=>{const tr=e.target.closest('tr.lvl-area');if(!tr)return;
-  const ar=tr.getAttribute('data-area');if(OV.open.has(ar))OV.open.delete(ar);else OV.open.add(ar);buildObjTable();});
+
 document.getElementById('objThead').addEventListener('click',e=>{const th=e.target.closest('th');if(!th)return;
   const k=th.dataset.k;if(OV.sort.k===k)OV.sort.dir=OV.sort.dir==='asc'?'desc':'asc';
   else{OV.sort.k=k;OV.sort.dir=(k==='name')?'asc':'desc';}buildObjTable();});
