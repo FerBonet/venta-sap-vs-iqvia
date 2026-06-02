@@ -506,6 +506,7 @@ function totalRowHTML(a,p){const g=pctv(a,p),du=a-p,c=g>=0?'pos':'neg';
     <td class="num ${c}" style="font-weight:700">${pct(g)}</td><td class="num ${c}">${signU(du)}</td></tr>`;
 }
 /* ---- filtros ---- */
+const MKT_HIDE_AREAS=['Vendidos/Discontinuados']; // ocultas en Análisis de mercado
 let FL={text:'',area:'',gf:'',mol:'',estado:'all',grilla:'all'};
 function famPasses(x){
   if(FL.area&&x.area!==FL.area)return false;
@@ -522,12 +523,13 @@ function famPasses(x){
 }
 function activeFams(){return A.fams.filter(famPasses);}
 function fillFilters(){
-  const areas=[...new Set(A.fams.map(f=>f.area))].sort();
-  const gfs=[...new Set(A.fams.map(f=>f.gf))].sort();
-  const mols=[...new Set(A.fams.map(f=>f.mol).filter(Boolean))].sort();
-  document.getElementById('fArea').innerHTML='<option value="">Agrupación: todas</option>'+areas.map(a=>`<option>${a}</option>`).join('');
-  document.getElementById('fGF').innerHTML='<option value="">Gran familia: todas</option>'+gfs.map(a=>`<option>${a}</option>`).join('');
-  document.getElementById('fMol').innerHTML='<option value="">Molécula: todas</option>'+mols.map(a=>`<option>${a}</option>`).join('');
+  const areas=[...new Set(A.fams.map(f=>f.area))].filter(a=>!MKT_HIDE_AREAS.includes(a)).sort();
+  const gfs=[...new Set(A.fams.filter(f=>!MKT_HIDE_AREAS.includes(f.area)).map(f=>f.gf))].sort();
+  const mols=[...new Set(A.fams.filter(f=>!MKT_HIDE_AREAS.includes(f.area)).map(f=>f.mol).filter(Boolean))].sort();
+  const esc=s=>String(s).replace(/"/g,'&quot;');
+  document.getElementById('fArea').innerHTML='<option value="">Agrupación: todas</option>'+areas.map(a=>`<option value="${esc(a)}">${a.trim()}</option>`).join('');
+  document.getElementById('fGF').innerHTML='<option value="">Gran familia: todas</option>'+gfs.map(a=>`<option value="${esc(a)}">${a}</option>`).join('');
+  document.getElementById('fMol').innerHTML='<option value="">Molécula: todas</option>'+mols.map(a=>`<option value="${esc(a)}">${a}</option>`).join('');
 }
 
 function sortKey(item,name){ // item = {a,p} agregado o familia; name = etiqueta
@@ -544,10 +546,11 @@ function cmp(xa,xp,xn,ya,yp,yn){
 }
 function buildTree(){
   const fams=activeFams();
-  const byArea={};fams.forEach(x=>{(byArea[x.area]=byArea[x.area]||[]).push(x);});
+  const tot=aggS(fams); // total incluye TODO (también Vendidos/Discontinuados)
+  const famsVis=fams.filter(x=>!MKT_HIDE_AREAS.includes(x.area)); // filas visibles
+  const byArea={};famsVis.forEach(x=>{(byArea[x.area]=byArea[x.area]||[]).push(x);});
   let areas=Object.entries(byArea).map(([a,fa])=>({a,fa,o:aggS(fa)}));
   areas.sort((x,y)=>cmp(x.o.a,x.o.p,x.a, y.o.a,y.o.p,y.a));
-  const tot=aggS(fams);
   let html=totalRowHTML(tot.a,tot.p);
   markIndex={};
   areas.forEach((Ar,ai)=>{const aid='a'+ai;
@@ -583,7 +586,8 @@ function applyVis(){document.querySelectorAll('#treeBody tr').forEach(tr=>{
 
 /* ---- contribución al crecimiento (familias, unidades absolutas) ---- */
 function renderContrib(){
-  const fams=activeFams().map(x=>{const v=sapVals(x);return {x,a:v.a,p:v.p,d:v.a-v.p};});
+  const famsAll=activeFams().map(x=>{const v=sapVals(x);return {x,a:v.a,p:v.p,d:v.a-v.p};});
+  const fams=famsAll.filter(f=>!MKT_HIDE_AREAS.includes(f.x.area)); // rankings sin discontinuados
   const perTxt={ytd:'YTD '+YTDLBL+' vs. año anterior',mat:'MAT 12m vs. año anterior',
     mes:(S.mesRef==='mom'?MES_MOM:MES_YOY)}[S.per];
   document.getElementById('contribSub').textContent=`Qué familias sumaron y cuáles restaron al total Siegfried · ${perTxt} · en unidades`;
