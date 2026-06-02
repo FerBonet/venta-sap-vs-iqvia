@@ -773,14 +773,14 @@ function drawComp(e){
   const gMkt=(TP>0)?TA/TP:null;
   // ¿Siegfried está entre los labs de comp? si no, lo agrego desde e.sg para forzarlo
   let compArr=e.comp.slice();
-  const hasSie=compArr.some(c=>/SIEGFRIED|ROEMMERS/.test(c.c));
+  const hasSie=compArr.some(c=>/^SIEGFRIED/.test(c.c));
   if(!hasSie){const sgv=iqAgg(e.sg); if(sgv.a>0||sgv.p>0)compArr.push({c:'SIEGFRIED',s:e.sg,_forced:true});}
   compRows=compArr.map(c=>{const v=compAgg(c);const g=pctv(v.a,v.p);
     const ms=TA>0?v.a/TA*100:null, msp=TP>0?v.p/TP*100:null;
     const ei=(v.p>0&&gMkt)?((v.a/v.p)/gMkt*100):null;
     return {c:c.c.replace(/ CORP$/,''),raw:c.c,a:v.a,p:v.p,g:(g==null?-1e9:g),gRaw:g,
       ms:(ms==null?-1:ms),msRaw:ms,msp,ei:(ei==null?-1e9:ei),eiRaw:ei,
-      isSie:/SIEGFRIED|ROEMMERS/.test(c.c)};}).filter(c=>c.a>0);
+      isSie:/^SIEGFRIED/.test(c.c)};}).filter(c=>c.a>0);
   compTotals={TA,TP,gMkt};
   renderComp();}
 function renderComp(){
